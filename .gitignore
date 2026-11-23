@@ -1,0 +1,13 @@
+.env
+*.session
+*.session-journal
+.venv/
+cache/
+sinyaller.db
+bot.log
+rapor*.html
+rapor.txt
+trades.csv
+__pycache__/
+
+ozet.txt
