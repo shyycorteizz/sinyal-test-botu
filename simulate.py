@@ -98,7 +98,7 @@ def bot_gozu(sig: dict, bars: pd.DataFrame, mod: str = "tp1", a: Ayar = Ayar()) 
     # Giris mumunda stop seviyesi de goruldu ise sirasi bilinemez -> en kotusu: stop
     if bars.iloc[i0].Low <= stop:
         gelir = sat(stop)
-        out.update(satis_ort=round(gelir, 4), getiri=round(gelir / alis - 1 - 2 * a.komisyon, 5),
+        out.update(satis_ort=round(gelir, 4), getiri=gelir / alis - 1 - 2 * a.komisyon,
                    sonuc="STOP", sure_dk=0, mfe=0.0, mae=round(stop / alis - 1, 4),
                    cikis_saat=t_giris.strftime("%H:%M"))
         return out
@@ -135,7 +135,7 @@ def bot_gozu(sig: dict, bars: pd.DataFrame, mod: str = "tp1", a: Ayar = Ayar()) 
 
     out.update(
         satis_ort=round(gelir, 4),
-        getiri=round(gelir / alis - 1 - 2 * a.komisyon, 5),
+        getiri=gelir / alis - 1 - 2 * a.komisyon,
         sonuc=sonuc,
         sure_dk=int((t_cikis - t_giris).total_seconds() // 60),
         mfe=round(yuksek / alis - 1, 4),   # pozisyon acikken gorulen en iyi an

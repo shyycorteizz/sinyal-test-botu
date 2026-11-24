@@ -77,3 +77,12 @@ def anlik_fiyat(ticker: str):
     except Exception:
         pass
     return None, None
+
+
+def sinyal_oncesi(ticker: str, t_utc: pd.Timestamp, n: int = 20) -> pd.DataFrame:
+    """Kanit grafigi icin: sinyalden onceki son n mum."""
+    t_ny = t_utc.tz_convert(config.NY)
+    gun = gun_mumlari(ticker, t_ny)
+    if gun.empty:
+        return gun
+    return gun[gun.index < t_ny.floor("min") + timedelta(minutes=1)].tail(n)

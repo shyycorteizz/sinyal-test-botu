@@ -1,60 +1,70 @@
 # 📊 Sinyal Test Botu
 
-**Telegram'daki borsa sinyal kanalları gerçekten kazandırıyor mu?** Bu bot, bir kanalın verdiği her "al" sinyalini **gerçek dakika dakika fiyatlarla** test eder. Sonra kanalın gösterdiği kâr ile gerçekte olacak kâr/zararı yan yana koyar.
+**Telegram'daki borsa sinyal kanalları gerçekten kazandırıyor mu?** Bu bot, bir kanalın verdiği her "al" sinyalini **gerçek dakika dakika fiyatlarla** test eder ve kanalın gösterdiğiyle gerçekte olacak olanı yan yana koyar.
 
 > Gerçek işlem yapmaz, para kullanmaz. Her şey sanal hesapla hesaplanır.
 
-![Sinyal Karnesi paneli](docs/panel.png)
-
-*(Görseldeki veriler örnek/demo verisidir.)*
+![Sinyal Karnesi](docs/panel.png)
 
 ---
 
 ## Neden yaptım?
 
-Telegram'daki sinyal kanalları genelde "bu hafta 42 sinyalin 42'si kâr, toplam +%484" gibi özetler paylaşıyor. Bu rakamlar zarar eden sinyalleri saymıyor, takip edenlerin yaşadığı gecikmeyi ve ücretleri de hesaba katmıyor.
+Telegram'daki sinyal kanalları genelde "bu hafta 42 sinyalin 42'si kâr, toplam +%484" gibi özetler paylaşıyor. Bu hesap kaybettiren sinyalleri, takip edenin geç kalmasını ve ücretleri saymıyor.
 
 Bu botu, bir kanala gerçek para yatırmadan önce iddialarını **rakamlarla sınamak** için yazdım.
 
-**İlk gerçek test (bir kanalın 16-20 Kasım 2026 haftalık özeti, 42 sinyal):**
+### İlk gerçek test: Bir kanalın 16-20 Kasım 2026 haftalık özeti (42 sinyal)
 
 | | Sonuç |
 |---|---|
-| Kanalın iddiası | 42/42 kâr, **+%484** |
-| Kanalın kendi kurallarıyla, kayma ve gecikme olmadan | 41 sinyalden 24'ü hedefe, 17'si önce zarar kese |
-| Bot gerçekten girseydi ($10.000 sanal hesap) | **$9.155, yani −%8.5** |
-| Bot 1 dk geç kalsa / elle alınsa / farklı satış stratejisi | 6 durumun **6'sında da zarar** |
+| Kanalın kendi özetinde | 42/42 "kâr", **+%484** (42 sinyalin yüzdeleri toplanmış) |
+| Gerçek fiyatlara göre, kayma ve ücret olmadan | 41 sinyalden 23'ü hedefe, 18'i önce zarar kese ulaştı |
+| Sanal hesapla (kayma, ücret dahil) | **$10.000 → $9.068, yani −%9,3** |
+| Kâra geçmek için gereken | 10 sinyalden 6,6'sının tutması; gerçekte 4,5 tuttu |
+| Farklı alım hızları ve satış stratejileri | Denenen 6 durumun **6'sında da zarar** |
 
-*Özette zarar kes seviyesi yazmadığı için girişin %7.5 altı varsayılmıştır. Tek haftalık bir örneklemdir.*
+**Sınırlamalar:** Özette zarar kes seviyesi yazmadığı için girişin %7,5 altı varsayıldı. Panelde bu değeri değiştirip kendin deneyebilirsin. Bu tek haftalık bir örneklemdir ve kanalın niyeti hakkında bir yargı değildir.
+
+---
+
+## Panel (v2)
+
+- **Tek bakışta cevap:** "Bu sinyallere uysaydın paran ne olurdu?" sorusunun cevabı ve kanalın gösterdiği rakam yan yana.
+- **Neden?** 10 sinyalden kaçının tuttuğu ve kâra geçmek için kaçının tutması gerektiği tek bir çubukta.
+- **Kanıt:** Herhangi bir sinyale tıkla; o anın gerçek 1 dakikalık mum grafiği, kanalın mesajı ve neler olduğunun düz Türkçe anlatımı açılır.
+- **Farklı varsayımlarla dene:** Kasa, alım hızı (bot / 1 dk geç / elle), satış zamanı ve zarar kes tahmini. Bu bölüm kapalı gelir, isteyen açar.
+- **Tamamen çevrimdışı tek dosya.** Sayfadaki hesabın Python botuyla kuruşu kuruşuna aynı sonucu verdiği test edildi.
+
+![Kanıt penceresi](docs/kanit.png)
+
+## Dürüstlük ilkesi
+
+Bu projenin amacı **ikna etmek değil, dürüstçe göstermek.**
+- Kanalın kendi rakamı da gösterilir, gerçekçi hesap da. Nereden geldikleri yazar.
+- Tahmin edilen her şey "TAHMİN" diye işaretlenir ve değiştirilebilir.
+- Verinin sınırları (eksik dakikalar, az örneklem) sayfada açıkça yazar.
+- Hesap belirsiz kaldığında (aynı dakikada hem hedef hem zarar kes görülmesi gibi) kötü ihtimal seçilir; kanalın lehine olan varsayımlar da (giriş dakikasını teste dahil etmek gibi) açıkça yazar.
+- Bulunan hatalar düzeltilip açıklanır. v2'de iki tane düzeltildi: v1'de "kanalın iddiası" yanlış etiketlenmişti, bir de Yahoo'nun 1.3999999 gibi verdiği fiyatlar bir sinyalin yanlış sayılmasına yol açıyordu.
 
 ---
 
 ## Özellikler
 
 - **Haftalık özet testi:** Kanalın paylaştığı özeti yapıştır, bot her sinyali o günün gerçek fiyatlarıyla kontrol etsin. Telegram kurulumu gerekmez.
-- **Canlı Telegram dinleyici:** Yazılı sinyal atan kanalları 7/24 izler ve her sinyali kaydeder. Bildirimi o anki fiyatla birlikte Telegram'a gönderir.
-- **Silme ve düzenleme takibi:** Kanal kaybettiren bir sinyali silerse ya da sonradan değiştirirse, bot ilk hâlini saklar ve hesaba katar.
-- **Kanal vs gerçek:** Aynı sinyalleri iki hesapla değerlendirir. Biri kanalın usulü (sadece kazananlar toplanır), diğeri gerçekçi hesap (kayma, komisyon, gecikme dahil).
-- **6 senaryo:** Bot anında alsa, 1 dk geç kalsa, telefondan elle alınsa × iki farklı satış stratejisi.
-- **Yeni başlayanlar için panel:** Borsa terimi bilmeyen biri de anlasın diye sade Türkçe yazıldı. Her terimin yanında açıklama baloncuğu, sayfa sonunda sözlük var.
-- **Gün sonu karnesi:** Her iş günü özet ve panel Telegram'a otomatik gelir.
-- **21 otomatik test.**
-
-## Dürüst test kuralları
-
-- Mesaj gelmeden alım yapılamaz.
-- Alış ve satışta %1 kayma ile %0.1 komisyon hesaplanır.
-- Fiyat alış seviyesinin %3'ten fazla üstüne kaçtıysa sinyal "yetişilemedi" sayılır.
-- Aynı dakikada hem kâr hedefi hem zarar kes görülürse **zarar** sayılır (en kötü ihtimal).
+- **Canlı Telegram dinleyici:** Yazılı sinyal atan kanalları 7/24 izler. Her sinyali kaydeder ve o anki fiyatla birlikte sana bildirir.
+- **Silme ve düzenleme takibi:** Kanal bir sinyali silerse ya da değiştirirse ilk hâli saklanır ve hesaba katılır.
+- **Gün sonu karnesi:** Her iş günü özet Telegram'a otomatik gelir.
+- **23 otomatik test.**
 
 ## Kullanım (Windows)
 
 1. [Python 3.11+](https://www.python.org/downloads/) kur. Kurulumda "Add to PATH" kutusunu işaretle.
-2. `kurulum.bat` → kütüphaneleri kurar ve testleri çalıştırır.
+2. `kurulum.bat` → kütüphaneleri kurar, testleri çalıştırır.
 3. **Haftalık özet testi:** `OZET_TEST.bat` → özeti yapıştır → rapor tarayıcıda açılır.
 4. **Canlı dinleme (isteğe bağlı):** [my.telegram.org](https://my.telegram.org) adresinden API anahtarı al, `.env` dosyasını doldur, sonra `BASLAT.bat`.
 
-> ⚠️ `.env` ve `*.session` dosyaları Telegram hesabının anahtarıdır. Asla paylaşma ve repoya yükleme (`.gitignore` bunları zaten dışarıda tutuyor).
+> ⚠️ `.env` ve `*.session` dosyaları Telegram hesabının anahtarıdır. Asla paylaşma; `.gitignore` bunları zaten repodan uzak tutuyor.
 
 ## Yapı
 
@@ -65,7 +75,7 @@ listener.py        Telegram dinleyici (Telethon)
 piyasa.py          1 dakikalık fiyat verisi (Yahoo Finance, önbellekli)
 simulate.py        "Kanalın gözü" ve "botun gözü" simülasyonu
 evaluate.py        Senaryolar, istatistikler, Telegram özeti
-rapor.py           Tek dosyalık HTML panel
+rapor.py           Tek dosyalık HTML panel (hesap motoru dahil)
 db.py              SQLite kayıt
 tests/             Otomatik testler
 ```
@@ -76,7 +86,11 @@ tests/             Otomatik testler
 
 ### English summary
 
-A tool that checks whether Telegram stock-signal channels actually make money. It parses each signal (entry / stop / targets) from live messages or weekly recap posts. Then it replays the signal against real 1-minute price data, with slippage, fees and execution delay, and compares the channel's advertised gains with realistic paper-trading results. In its first real test, a week the channel advertised as "42/42 winners, +484%" came out at **−8.5%** on a simulated account. No real trades are placed.
+A tool that checks whether Telegram stock-signal channels actually make money. It reads each signal (entry / stop / targets) from live messages or weekly recap posts, then replays it against real 1-minute price data with slippage, fees and execution delay. The channel's advertised gains are shown next to realistic paper-trading results. In its first real test, a week the channel advertised as "42/42 winners, +484%" came out at **−9.3%** on a simulated account (stop-loss level assumed at 7.5%, adjustable in the report). No real trades are placed.
+
+### Sürüm geçmişi
+- **v2:** Sade panel (tek bakışta cevap, "neden?" çubuğu, tıklanabilir kanıt grafikleri, kapalı ayarlar bölümü). Kanalın kendi iddiası doğru etiketlendi. Fiyat yuvarlama hatası düzeltildi.
+- **v1:** Telegram dinleyici, haftalık özet testi, 6 senaryolu rapor
 
 *Eğitim ve analiz amaçlıdır. Yatırım tavsiyesi değildir.*
 

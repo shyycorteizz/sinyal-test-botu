@@ -5,6 +5,7 @@
     python evaluate.py --ac      -> rapor bitince tarayicida ac
 """
 import argparse
+import re
 import sys
 import json
 import webbrowser
@@ -34,7 +35,7 @@ def ozet(islemler: list, sermaye0: float, poz: float) -> dict:
     sermaye, tepe, dd = sermaye0, sermaye0, 0.0
     egri = [{"i": 0, "t": None, "v": round(sermaye0, 2), "tk": None, "g": None}]
     if n:
-        for k, (_, r) in enumerate(al.sort_values("time").iterrows(), 1):
+        for k, (_, r) in enumerate(al.sort_values(["time", "id"], kind="stable").iterrows(), 1):
             sermaye += sermaye * poz * r.getiri
             tepe = max(tepe, sermaye)
             dd = max(dd, 1 - sermaye / tepe)
@@ -58,8 +59,22 @@ def ozet(islemler: list, sermaye0: float, poz: float) -> dict:
     return o
 
 
-def analiz(sinyaller: pd.DataFrame, mum_getir, sermaye0=None, poz=None, ayar: Ayar = None, log=print) -> dict:
-    """mum_getir(ticker, time_utc) -> sinyal sonrasi dakikalik mumlar"""
+def mum_paketle(df):
+    """Mumlari HTML'e gomulecek kucuk bir bicime cevirir (fiyat x10000 tamsayi, dakika farki)."""
+    if df is None or len(df) == 0:
+        return None
+    # birimden bagimsiz (pandas surumune gore ns/us olabilir): 1970'ten beri gecen dakika
+    t = ((df.index.tz_convert("UTC") - pd.Timestamp("1970-01-01", tz="UTC")) // pd.Timedelta(minutes=1)).to_numpy()
+    t0 = int(t[0])
+    q = lambda col: [int(round(x * 10000)) for x in df[col].astype(float)]
+    return {"t0": t0, "dt": [int(x - t0) for x in t], "o": q("Open"), "h": q("High"), "l": q("Low"),
+            "c": q("Close"), "v": [int(x) for x in df["Volume"].fillna(0)]}
+
+
+def analiz(sinyaller: pd.DataFrame, mum_getir, sermaye0=None, poz=None, ayar: Ayar = None, log=print,
+           once_getir=None) -> dict:
+    """mum_getir(ticker, time_utc) -> sinyal sonrasi dakikalik mumlar
+    once_getir(ticker, time_utc) -> (istege bagli) kanit grafigi icin sinyal oncesi mumlar"""
     sermaye0 = sermaye0 or config.SANAL_SERMAYE
     poz = poz or config.POZISYON_ORANI
     ayar = ayar or Ayar()
@@ -67,17 +82,34 @@ def analiz(sinyaller: pd.DataFrame, mum_getir, sermaye0=None, poz=None, ayar: Ay
 
     for _, s in sinyaller.iterrows():
         t_ny = s.time_utc.tz_convert(config.NY)
+        # ozetten gelenlerde sinyal zamani, kanalin yazdigi giris dakikasinin 1 dk oncesi olarak kaydedildi
+        # (kanalin lehine); ekranda kanalin kendi yazdigi saati goster
+        _raw0 = s.get("raw") if isinstance(s.get("raw"), str) else ""
+        t_goster = s.time_utc + pd.Timedelta(minutes=1) if _raw0.startswith("[HAFTALIK") else s.time_utc
+        t_gny = t_goster.tz_convert(config.NY)
         try:
             bars = mum_getir(s.ticker, s.time_utc)
         except Exception as e:
             log(f"  ! {s.ticker}: {e}")
             bars = pd.DataFrame()
+        if bars is not None and len(bars):
+            # Yahoo bazen 1.40 yerine 1.3999999 verir (float hatasi); 4 basamaga yuvarlayip temizle
+            bars = bars.assign(**{c: bars[c].astype(float).round(4) for c in ("Open", "High", "Low", "Close")})
         d = {"entry": s.entry, "stop": s.stop, "tp1": s.tp1,
              "tp2": None if pd.isna(s.tp2) else float(s.tp2)}
         kg = kanal_gozu(d, bars)
+        try:
+            once = once_getir(s.ticker, s.time_utc) if once_getir else None
+        except Exception:
+            once = None
+        raw = s.get("raw") if isinstance(s.get("raw"), str) else ""
+        m_id = re.search(r"\|\s*\+?%\s*([\d.,]+)\s*$", raw) if raw.startswith("[HAFTALIK") else None
+        iddia = float(m_id.group(1).replace(",", ".")) / 100 if m_id else None
         satirlar.append({
-            "id": int(s.msg_id), "time": t_ny.isoformat(), "tarih": t_ny.strftime("%d.%m"),
-            "saat": t_ny.strftime("%H:%M"), "saat_tr": s.time_utc.tz_convert("Europe/Istanbul").strftime("%H:%M"),
+            "m": mum_paketle(bars), "pre": mum_paketle(once), "raw": raw.replace(" | ", "\n"),
+            "stop_tahmin": raw.startswith("[HAFTALIK"), "iddia": iddia, "ilk_hali": s.get("ilk_hali") if isinstance(s.get("ilk_hali"), str) else None,
+            "id": int(s.msg_id), "time": t_ny.isoformat(), "tarih": t_gny.strftime("%d.%m"),
+            "saat": t_gny.strftime("%H:%M"), "saat_tr": t_goster.tz_convert("Europe/Istanbul").strftime("%H:%M"),
             "ticker": s.ticker, **d, **kg,
             "silindi": bool(s.get("silindi", 0)), "duzenlendi": bool(isinstance(s.get("duzenlendi"), str)),
         })
@@ -133,7 +165,11 @@ def metin_ozet(sonuc: dict, ana="g0_tp1") -> str:
             satir.append(f"Kısacası: Bu sinyallere uysaydın {para(m['sermaye'])} → {para(o['son_sermaye'])} olurdu. {para(fark)} KÂR ✅")
         else:
             satir.append(f"Kısacası: Bu sinyallere uysaydın {para(m['sermaye'])} → {para(o['son_sermaye'])} olurdu. {para(-fark)} ZARAR ❌")
-        satir.append(f"Kanal ise bunu {yuzde(k['basit_toplam_sadece_tp'])} diye gösteriyor.")
+        idd = [x.get("iddia") for x in sonuc["sinyaller"]]
+        if idd and all(x is not None for x in idd):
+            satir.append(f"Kanal ise kendi özetinde bunu {yuzde(sum(idd))} diye gösteriyor.")
+        else:
+            satir.append(f"Kanalın usulüyle (sadece kazananlar toplanınca): {yuzde(k['basit_toplam_sadece_tp'])}.")
         satir.append("")
         satir.append(f"• 10 sinyalden {round(o['kazanma'] * 10)} tanesi kâr ettirdi"
                      + (f" (kâra geçmek için gereken: 10'da {round(o['basabas_orani'] * 10)})" if o.get('basabas_orani') is not None else ""))
@@ -218,7 +254,7 @@ def main():
             print("Henuz kayitli sinyal yok. Once baslat.bat ile kanali dinlet.")
             return
     print(f"{len(sig)} sinyal test ediliyor...")
-    sonuc = analiz(sig, getir, a.sermaye, a.pozisyon)
+    sonuc = analiz(sig, getir, a.sermaye, a.pozisyon, once_getir=None if a.demo else piyasa.sinyal_oncesi)
     if a.demo:
         sonuc["meta"]["kanal"] = "DEMO (sahte veri)"
     yol = Path("rapor_demo.html" if a.demo else "rapor.html")

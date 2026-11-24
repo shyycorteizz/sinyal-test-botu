@@ -71,5 +71,10 @@ out = os.path.join(tempfile.mkdtemp(), "r.html")
 html_yaz(sonuc, out)
 check("html uretildi", os.path.getsize(out) > 20000 and "NaN" not in open(out, encoding="utf-8").read())
 check("6 senaryo", len(sonuc["senaryolar"]) == 6)
+from evaluate import mum_paketle
+m = mum_paketle(kazanc)
+check("mum zamanlari dakika dakika paketlenir", m["dt"] == [0, 1, 2, 3] and m["o"][0] == 7800)
 
+r = bot_gozu(SIG, B([[.79, .7999999, .78, .79, 9e3], [.79, .80, .78, .80, 9e3]]))
+check("ham Yahoo verisi (0.7999999) yuvarlanmadan girilmez", r["durum"] != "alindi" or r["giris_saat"] == "04:11")
 print(f"\n✅ {ok} test geçti")

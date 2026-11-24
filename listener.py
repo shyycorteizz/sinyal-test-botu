@@ -175,7 +175,7 @@ def rapor_uret():
     from evaluate import analiz, metin_ozet
     from rapor import html_yaz
     sig = db.hepsi()
-    sonuc = analiz(sig, piyasa.sinyal_sonrasi, log=lambda *_: None)
+    sonuc = analiz(sig, piyasa.sinyal_sonrasi, log=lambda *_: None, once_getir=piyasa.sinyal_oncesi)
     yol = Path("rapor.html")
     html_yaz(sonuc, yol)
     return metin_ozet(sonuc), yol
